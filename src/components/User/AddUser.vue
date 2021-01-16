@@ -2,6 +2,29 @@
     <div class="container-fluid mb-5">
         <div class="row">
             <div class="offset-md-3 col-md-6">
+                <div 
+                    v-if="notification" 
+                    :class="alertClass" 
+                    role="alert"
+                >
+                    <ul 
+                        v-if="errorMessage" 
+                        class="mb-1">
+                        <li v-for="msg in message" :key="msg">
+                            {{ msg[0] }}
+                        </li>
+                    </ul>
+                    <span v-else>
+                        {{ message }}
+                    </span>
+                    <button 
+                        @click="notification = false" 
+                        type="button" 
+                        class="close"
+                    >
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
                 <router-link 
                     class="btn btn-success btn-md mb-2" 
                     to="/users"
@@ -39,6 +62,7 @@
                                                 style="display: none;"
                                                 @change="handleImageSelected"
                                                 ref="selectedFile"
+                                                required
                                             >
                                         
                                             <button 
@@ -164,12 +188,18 @@
 </template>
 
 <script>
-import { reactive } from 'vue';
+import { reactive, ref } from 'vue';
 import { useImageUpload } from '@/composables/useImageUpload.js';
+import myApi from '../../plugins/axios';
 
 export default {
     name: "AddUser",
     setup() {
+        let notification = ref(false);
+        let errorMessage = ref(false);
+        let message = ref({});
+        let alertClass = ref('');
+
         let {
             imageFile, 
             image, 
@@ -194,11 +224,24 @@ export default {
             formData.append('email', state.form.email);
             formData.append('gender', state.form.gender);
 
-            for (var value of formData.values()) {
-                console.log(value);
-            }
+            // for (var value of formData.values()) {
+            //     console.log(value);
+            // }
 
-            resetForm();
+            await myApi.post(`/`, formData)
+            .then((res) => {
+                errorMessage.value = false;
+                message.value = res.data.message;
+                alertClass.value = 'alert alert-success alert-dismissible fade show';
+                resetForm();
+            })
+            .catch((err) => {
+                errorMessage.value = true;
+                message.value = err.response.data.formErrors;
+                alertClass.value = 'alert alert-danger alert-dismissible fade show';
+            });
+
+            notification.value = true;
         }
         
         function resetForm() {
@@ -216,12 +259,21 @@ export default {
             imageFile.value = "";
         }
 
+        function closeNotif() {
+            notification.value = false;
+        }
+
         return {
             handleImageSelected,
             submit,
             resetForm,
             state,
-            image
+            image,
+            notification,
+            message,
+            alertClass,
+            closeNotif,
+            errorMessage
         }
     }
 }
